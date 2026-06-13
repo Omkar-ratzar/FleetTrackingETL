@@ -18,7 +18,7 @@ truck_name=first_truck["brand"]+" "+first_truck["model"]
 truck_fuel_type=first_truck["fuel_type"]
 truck_capacity=int(first_truck["fuel_tank"][:-3])
 truck_mileage=int(first_truck["mileage"][:-5])
-# print(truck_name,truck_capacity,truck_fuel_type,truck_mileage)
+print(truck_name,truck_capacity,truck_fuel_type,truck_mileage)
 
 def distance_bw(starting_point,ending_point):
     distance_km = geodesic(
@@ -33,8 +33,8 @@ starting_point=df_points.iloc[0]
 ending_point=df_points.iloc[-1]
 # end_time=start_time+timedelta(hours=)
 
+#wrong cz this will give me the displacement, will NOT use these values
 total=distance_bw(starting_point=starting_point,ending_point=ending_point)
-
 print("Total Distance: ",total)
 print("Fuel Needed: ",total/truck_mileage)
 print("Price @ 99.6/L: ",99.69*(total/truck_mileage))
@@ -64,29 +64,68 @@ def speed_randomizer(speed):
 
 current_speed=speed_randomizer(0)
 #start time alr initialized
+current_fuel_percent=32 #keeping it 32% cz ofc no truck is always 100% filled and I can stimulate stops and I'd completely randomize this while refactoring for all trucks
+current_fuel=current_fuel_percent/100*truck_capacity
+
+
 
 point_csv_index=0
 end_time=start_time
 complete_distance=0
 
-while( point_csv_index < (len(df_points) - 1)):
+logger_list=[]
 
+while( point_csv_index < (len(df_points) - 1)):
+    state="Running"
     starting_point=df_points.iloc[point_csv_index]
     ending_point=df_points.iloc[point_csv_index+1]
     # end_time=start_time+timedelta(hours=)
     this_section=distance_bw(starting_point=starting_point,ending_point=ending_point)
+    #fuel shit
+    fuel_burnt=this_section/truck_mileage
+    current_fuel-=fuel_burnt
+    current_fuel_percent=current_fuel/truck_capacity*100
+    if(current_fuel_percent<5):
+        #add a stop of 10 mins and reset
+        state="Fuel Stop"
+        end_time+=timedelta(minutes=10)
+        current_fuel=truck_capacity
+        current_fuel_percent=100
     if(current_speed>0):
         end_time+=timedelta(hours=this_section/current_speed)
     else:
-        end_time+=timedelta(minutes=10)
-        # print("REACHED 0!")
+        #reached 0.
+        #5 to 40 mins in traffic now
+        state="Traffic"
+        traffic_stop=random.choice(range(5,40))
+        end_time+=timedelta(minutes=traffic_stop)
+
     complete_distance+=this_section
 
+    # print(f"Current speed: {current_speed}, Length of this section: {this_section}, Current Fuel Capacity: {current_fuel_percent}")
+
+    #to be stored in the csv file in each row: point_csv_index as idx, ending_point as curr_point, this_section as section_len, current_fuel_percent, current_speed,ending_time as Duration, state (default: Running, Traffic if traffic, fuelstop if fuelstop)
+    log_row = {
+        "idx": point_csv_index,
+        "curr_lat": ending_point["Latitude"],
+        "curr_lon": ending_point["Longitude"],
+        "section_len": round(this_section, 3),
+        "current_fuel_percent": round(current_fuel_percent, 2),
+        "current_speed": current_speed,
+        "duration": end_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "state": state
+    }
+    logger_list.append(log_row)
     current_speed=speed_randomizer(current_speed)
     # print(current_speed)
     point_csv_index+=1
 
+
 actual_journey_time=end_time-start_time
 avg_speed=complete_distance/(actual_journey_time.total_seconds()/3600)
 print(complete_distance,start_time,end_time,actual_journey_time,round(avg_speed,2))
+#print(logger_list)
+df_journey=pd.DataFrame(logger_list)
+output_path = "E:\\Coding\\Fleet\\CSV_FILES\\Journeys\\First_Journey_Ever.csv"
+df_journey.to_csv(output_path,index=False)
 
