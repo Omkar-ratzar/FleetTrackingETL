@@ -90,19 +90,58 @@ for iterator in range(Total_Journeys):
     logger_list=[]
     route_choice=route_choice[:-4] #removing the file extension to be used properly in the rest of the code
 
+    #aading some inconsistencies throughtout the journey to make it more riyal. If any of these go true, these will occur in the journey.
+    journey_len=len(df_points)
+    tyre_puncture=False
+    accident=False
+    GPS_lost=False
+    detour=False
+    GPS_drift=False
+    if(random.random()<0.005):
+        tyre_puncture=True
+        puncture_index=random.randint(max(5,journey_len//5),journey_len-5)
+    if(random.random()<0.001):
+        accident=True
+        accident_index=random.randint(max(5,journey_len//5),journey_len-5)
+    if(random.random()<0.05):
+        GPS_lost=True
+        GPS_lost_start=random.randint(2,journey_len-10)
+        GPS_lost_length=random.randint(3,10)
+    if(random.random()<0.01):
+        detour=True
+        detour_start=random.randint(5,journey_len-10)
+        detour_length=random.randint(3,8)
+    if(random.random()<0.03):
+        GPS_drift=True
+        GPS_drift_index=random.randint(2,journey_len-2)
+
+
+
     while( point_csv_index < (len(df_points) - 1)):
-        state="Running"
+        # state="Running"
         starting_point=df_points.iloc[point_csv_index]
         ending_point=df_points.iloc[point_csv_index+1]
         # end_time=start_time+timedelta(hours=)
         this_section=distance_bw(starting_point=starting_point,ending_point=ending_point)
+        #detour shi
+        if(detour and detour_start<=point_csv_index<detour_start+detour_length):
+            this_section*=random.uniform(1.5,2.5)
+
+        #GPS loss shi
+        if(GPS_lost and GPS_lost_start<=point_csv_index<GPS_lost_start+GPS_lost_length):
+            if(current_speed>0):
+                end_time+=timedelta(hours=this_section/current_speed)
+            point_csv_index+=1
+            continue
+
+
         #fuel shit
         fuel_burnt=this_section/truck_mileage
         current_fuel-=fuel_burnt
         current_fuel_percent=current_fuel/truck_capacity*100
         if(current_fuel_percent<5):
             #add a stop of 10 mins and reset
-            state="Fuel Stop"
+            # state="Fuel Stop"
             end_time+=timedelta(minutes=10)
             current_fuel=truck_capacity
             current_fuel_percent=100
@@ -111,11 +150,34 @@ for iterator in range(Total_Journeys):
         else:
             #reached 0.
             #5 to 40 mins in traffic now
-            state="Traffic"
-            traffic_stop=random.choice(range(5,40))
+            # state="Traffic"
+            # traffic_stop=random.choice(range(5,40))
+            r=random.random()
+            if(r<0.92):
+                traffic_stop=random.randint(5,20)
+            elif(r<0.99):
+                traffic_stop=random.randint(30,60)
+            elif(r<0.9999):
+                traffic_stop=random.randint(70,240)
+            else:
+                traffic_stop=random.randint(300,1000)
             end_time+=timedelta(minutes=traffic_stop)
 
         complete_distance+=this_section
+        if(tyre_puncture and point_csv_index==puncture_index):
+            # state="Tyre Puncture"
+            current_speed=0
+            end_time+=timedelta(minutes=random.randint(20,90))
+        if(accident and point_csv_index==accident_index):
+            # state="Accident"
+            current_speed=0
+
+        #GPS drift.
+        curr_lat=ending_point["Latitude"]
+        curr_lon=ending_point["Longitude"]
+        if(GPS_drift and point_csv_index==GPS_drift_index):
+            curr_lat+=random.uniform(-0.0008,0.0008)
+            curr_lon+=random.uniform(-0.0008,0.0008)
 
         # print(f"Current speed: {current_speed}, Length of this section: {this_section}, Current Fuel Capacity: {current_fuel_percent}")
 
@@ -126,15 +188,47 @@ for iterator in range(Total_Journeys):
             "fuel_type":truck_fuel_type,
             "route_name":route_choice,
             "idx": point_csv_index,
-            "curr_lat": ending_point["Latitude"],
-            "curr_lon": ending_point["Longitude"],
+            "curr_lat":curr_lat,
+            "curr_lon": curr_lon,
             "section_len": round(this_section, 3),
             "current_fuel_percent": round(current_fuel_percent, 2),
             "current_speed": current_speed,
             "duration": end_time.strftime("%Y-%m-%d %H:%M:%S"),
-            "state": state
+            # "state": state
         }
         logger_list.append(log_row)
+
+
+        #accident, truck will stay on the same point forever
+        # Journey ends here because of accident.
+        # GPS tracker is still powered and keeps transmitting.
+        #####
+        if(accident and point_csv_index==accident_index):
+
+            accident_hours = random.randint(3, 8)
+            packet_interval = random.randint(3, 8)
+
+            for _ in range((accident_hours*60)//packet_interval):
+                end_time+=timedelta(minutes=packet_interval)
+                logger_list.append({
+                    "journey_id":iterator,
+                    "truck_name":truck_name,
+                    "fuel_type":truck_fuel_type,
+                    "route_name":route_choice,
+                    "idx":point_csv_index,
+                    "curr_lat":curr_lat,
+                    "curr_lon": curr_lon,
+                    "section_len":0,
+                    "current_fuel_percent":round(current_fuel_percent,2),
+                    "current_speed":0,
+                    "duration":end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    # "state":"Accident"
+                })
+            break
+
+        #####
+
+
         current_speed=speed_randomizer(current_speed)
         # print(current_speed)
         point_csv_index+=1
