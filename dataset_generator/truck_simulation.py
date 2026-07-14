@@ -215,6 +215,7 @@ for iterator in range(Total_Journeys):
                 end_time+=timedelta(minutes=packet_interval)
                 logger_list.append({
                     "journey_id":iterator,
+                    "truck_id": truck_id,
                     "truck_name":truck_name,
                     "fuel_type":truck_fuel_type,
                     "route_name":route_choice,
