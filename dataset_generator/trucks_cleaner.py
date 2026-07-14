@@ -32,6 +32,8 @@ df = df[
     ]
 ]
 
+df.insert(0, "truck_id", range(len(df)))
+
 df.to_csv(
     "E:\\Coding\\Fleet\\CSV_FILES\\truck_cleaned.csv",
     index=False

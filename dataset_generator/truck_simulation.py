@@ -51,6 +51,7 @@ for iterator in range(Total_Journeys):
     Current_Truck=df_trucks.sample(1,replace=True).iloc[0]
 
     truck_name=Current_Truck["brand"]+" "+Current_Truck["model"]
+    truck_id=Current_Truck["truck_id"]
     truck_fuel_type=Current_Truck["fuel_type"]
     truck_capacity=float(Current_Truck["fuel_tank_liters"])
     truck_mileage=float(Current_Truck["mileage_kmpl"])
@@ -145,6 +146,7 @@ for iterator in range(Total_Journeys):
             end_time+=timedelta(minutes=10)
             current_fuel=truck_capacity
             current_fuel_percent=100
+            current_speed=0
         if(current_speed>0):
             end_time+=timedelta(hours=this_section/current_speed)
         else:
@@ -184,6 +186,7 @@ for iterator in range(Total_Journeys):
         #to be stored in the csv file in each row: point_csv_index as idx, ending_point as curr_point, this_section as section_len, current_fuel_percent, current_speed,ending_time as Duration, state (default: Running, Traffic if traffic, fuelstop if fuelstop)
         log_row = {
             "journey_id":iterator,
+            "truck_id": truck_id,
             "truck_name": truck_name,
             "fuel_type":truck_fuel_type,
             "route_name":route_choice,
